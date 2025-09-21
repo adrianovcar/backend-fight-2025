@@ -8,7 +8,7 @@ RUN composer install --no-dev --prefer-dist --no-ansi --no-interaction --no-scri
 FROM php:8.3-cli-alpine
 
 # pacotes essenciais e extensões
-RUN apk add --no-cache $PHPIZE_DEPS libstdc++ openssl-dev \
+RUN apk add --no-cache $PHPIZE_DEPS libstdc++ openssl-dev inotify-tools \
  && docker-php-ext-install pcntl opcache \
  && pecl install openswoole redis \
  && docker-php-ext-enable openswoole redis opcache

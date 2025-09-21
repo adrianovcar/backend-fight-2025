@@ -1,0 +1,53 @@
+services:
+  app:
+    build: .
+    image: rinha-laravel-octane:dev
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+      - ./docker/dev-entrypoint.sh:/usr/local/bin/dev-entrypoint.sh:ro
+      # Opcional em Mac/Windows: volume nomeado p/ vendor (melhora I/O)
+      # - vendor-cache:/var/www/html/vendor
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      LOG_CHANNEL: stderr
+      OCTANE_SERVER: swoole
+
+      # Redis igual produção
+      CACHE_DRIVER: redis
+      SESSION_DRIVER: redis
+      QUEUE_CONNECTION: redis
+      REDIS_CLIENT: phpredis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+    entrypoint: ["/bin/sh", "/usr/local/bin/dev-entrypoint.sh"]
+
+  redis:
+    image: redis:7-alpine
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --save
+      - ""
+      - --maxmemory
+      - "64mb"
+      - --maxmemory-policy
+      - allkeys-lru
+      - --loglevel
+      - warning
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+volumes:
+  redis-data:
+  # vendor-cache:
