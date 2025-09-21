@@ -6,16 +6,15 @@ services:
             APP_ENV: production
             APP_DEBUG: "false"
             LOG_CHANNEL: stderr
-            OCTANE_HTTPS: "false"
-            # PHP memory limit por processo/worker (não é o limite do container)
-            PHP_MEMORY_LIMIT: 128M
-        mem_limit: 128m
-        cpus: "0.6"
-        healthcheck:
-            test: [ "CMD", "wget", "-qO-", "http://localhost:8000/health" ]
-            interval: 5s
-            timeout: 2s
-            retries: 10
+            OCTANE_SERVER: swoole
+            PHP_MEMORY_LIMIT: 110M
+            CACHE_DRIVER: redis
+            REDIS_CLIENT: phpredis
+            REDIS_HOST: redis
+            REDIS_PORT: 6379
+        mem_limit: 110m
+        cpus: "0.55"
+        depends_on: [ redis ]
 
     api-2:
         build: .
@@ -24,24 +23,45 @@ services:
             APP_ENV: production
             APP_DEBUG: "false"
             LOG_CHANNEL: stderr
-            OCTANE_HTTPS: "false"
-            PHP_MEMORY_LIMIT: 128M
-        mem_limit: 128m
-        cpus: "0.6"
-        healthcheck:
-            test: [ "CMD", "wget", "-qO-", "http://localhost:8000/health" ]
-            interval: 5s
-            timeout: 2s
-            retries: 10
+            OCTANE_SERVER: swoole
+            PHP_MEMORY_LIMIT: 110M
+            CACHE_DRIVER: redis
+            REDIS_CLIENT: phpredis
+            REDIS_HOST: redis
+            REDIS_PORT: 6379
+        mem_limit: 110m
+        cpus: "0.55"
+        depends_on: [ redis ]
 
-    lb:
+    nginx:
         image: nginx:alpine
-        depends_on:
-            - api-1
-            - api-2
         volumes:
             - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-        ports:
-            - "9999:9999"
+        ports: [ "9999:9999" ]
+        mem_limit: 50m
+        cpus: "0.20"
+        depends_on: [ api-1, api-2 ]
+
+    redis:
+        image: redis:7-alpine
+        command:
+            - redis-server
+            - --appendonly
+            - "yes"
+            - --appendfsync
+            - everysec
+            - --save
+            - ""
+            - --maxmemory
+            - 48mb
+            - --maxmemory-policy
+            - allkeys-lru
+            - --loglevel
+            - warning
+        volumes:
+            - redis-data:/data
         mem_limit: 64m
-        cpus: "0.3"
+        cpus: "0.20"
+
+volumes:
+    redis-data:

@@ -10,3 +10,9 @@ Route::get('/user', function (Request $request) {
 Route::get('/up', function () {
     return "ok!";
 });
+
+Route::get('/admin/gateway', fn(App\Support\GatewaySelector $g) => [
+    'active' => $g->getActive('A')
+]);
+
+Route::get('/admin/results', fn(App\Support\ResultStore $s) => $s->latest(200));
