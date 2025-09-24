@@ -1,23 +1,43 @@
 #!/bin/sh -e
 cd /var/www/html
 
-# bootstrap simples
+# bootstrap
 [ -f .env ] || cp .env.example .env
 php artisan key:generate --force || true
 php artisan optimize:clear || true
 
-# watcher externo: quando houver mudança em app/, routes/, etc., manda reload
+WATCH_PATHS="app bootstrap config database resources routes"
+
+# ── Watcher A: inotify (se existir)
 if command -v inotifywait >/dev/null 2>&1; then
   (
-    while true; do
-      inotifywait -qr -e modify,create,delete,move \
-        app bootstrap config database resources routes || true
-      php artisan octane:reload || true
-    done
+    echo "[dev] watcher: inotify ativo"
+    inotifywait -m -r -q -e modify,create,delete,move $WATCH_PATHS \
+    | while read -r DIR EVENT FILE; do
+        echo "[dev] change: ${DIR}${FILE} (${EVENT}) → reload"
+        php artisan octane:reload || true
+      done
   ) &
 fi
 
-# inicia Octane (sem --watch)
+# ── Watcher B: polling (sempre ligado; cobre caso o inotify não dispare em bind-mount)
+(
+  echo "[dev] watcher: polling ativo"
+  LAST=""
+  while true; do
+    CUR="$(find $WATCH_PATHS -type f \( -name '*.php' -o -name '*.env' -o -name '*.blade.php' -o -name '*.json' \) -not -path 'vendor/*' -print 2>/dev/null \
+      | sort \
+      | xargs -r cat 2>/dev/null | md5sum | awk '{print $1}')"
+    if [ "$CUR" != "$LAST" ] && [ -n "$CUR" ]; then
+      echo "[dev] polling detectou mudança → reload"
+      LAST="$CUR"
+      php artisan octane:reload || true
+    fi
+    sleep 3
+  done
+) &
+
+# Inicia Octane (sem --watch)
 exec php artisan octane:start \
   --server=swoole \
   --host=0.0.0.0 \
