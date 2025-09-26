@@ -17,19 +17,16 @@ class PaymentsController extends Controller
     public function payments(PaymentRequest $request)
     {
         $data = $request->validated();
-//        Redis::set('payment_processor', getenv('PAYMENT_PROCESSOR_URL'));
-//        Redis::set('payment_processor', getenv('PAYMENT_PROCESSOR_FALLBACK_URL'));
-
         $uuid = $request->input('correlationId');
         $amount = $request->input('amount');
 
         try {
-            $response = Http::timeout(1)->connectTimeout(1)->post(Redis::get('payment_processor'), $data);
+            $response = Http::timeout(1)->connectTimeout(1)->post(Redis::get('payment_processor').'/payments', $data);
 
             if ($response->successful()) {
                 self::callPipelining($uuid, $amount, 1);
             } else {
-                $response = Http::timeout(1)->connectTimeout(1)->post(getenv('PAYMENT_PROCESSOR_FALLBACK_URL'), $data);
+                $response = Http::timeout(1)->connectTimeout(1)->post(getenv('PAYMENT_PROCESSOR_FALLBACK_URL').'/payments', $data);
 
                 if ($response->successful()) {
                     self::callPipelining($uuid, $amount, 2);
